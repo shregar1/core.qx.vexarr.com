@@ -1,0 +1,659 @@
+{
+  "service": "qx.v1.Broker",
+  "package": "qx.v1",
+  "proto": "qx.proto",
+  "reflection": false,
+  "auth": "All RPCs require gRPC metadata `authorization: Bearer <token>` (keyx API key with admin|owner role, or a configured local token). Missing/invalid \u2192 UNAUTHENTICATED.",
+  "stages": {
+    "local-dev": "localhost:50051",
+    "integration": "grpc.integration.qx.vexarr.com:443",
+    "staging": "grpc.staging.qx.vexarr.com:443",
+    "production": "grpc.qx.vexarr.com:443"
+  },
+  "rpc_count": 34,
+  "groups": [
+    {
+      "name": "Topics & Messaging",
+      "rpcs": [
+        {
+          "method": "OpenTopic",
+          "fullMethod": "qx.v1.Broker/OpenTopic",
+          "type": "unary",
+          "description": "Create/open a topic with N partitions (idempotent).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "name": "orders",
+            "partition_count": 6
+          },
+          "responseSummary": "OpenTopicResponse { partition_count }"
+        },
+        {
+          "method": "Send",
+          "fullMethod": "qx.v1.Broker/Send",
+          "type": "unary",
+          "description": "Append one record. `key`/`payload` are base64-encoded bytes.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "key": "dXNlci00Mg==",
+            "payload": "eyJvcmRlcl9pZCI6IDEwMDEsICJhbW91bnQiOiA0OTk5fQ=="
+          },
+          "responseSummary": "SendResponse { partition, record_id }"
+        },
+        {
+          "method": "SendBatch",
+          "fullMethod": "qx.v1.Broker/SendBatch",
+          "type": "unary",
+          "description": "Append many records in one round-trip.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "items": [
+              {
+                "key": "dXNlci00Mg==",
+                "payload": "eyJvcmRlcl9pZCI6IDEwMDEsICJhbW91bnQiOiA0OTk5fQ=="
+              },
+              {
+                "key": "dXNlci00Mw==",
+                "payload": "eyJvcmRlcl9pZCI6MTAwMn0="
+              }
+            ]
+          },
+          "responseSummary": "SendBatchResponse { results[] }"
+        },
+        {
+          "method": "Receive",
+          "fullMethod": "qx.v1.Broker/Receive",
+          "type": "unary",
+          "description": "Pull up to `max` messages (lease/visibility semantics).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "max": 10
+          },
+          "responseSummary": "ReceiveResponse { messages[] }"
+        },
+        {
+          "method": "ReceiveStream",
+          "fullMethod": "qx.v1.Broker/ReceiveStream",
+          "type": "server-stream",
+          "description": "SERVER-STREAMING: long-poll a continuous stream of messages. In Postman click Invoke and watch the stream pane; Ctrl-C to stop in grpcurl.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "max_batch": 50,
+            "poll_interval_ms": 250
+          },
+          "responseSummary": "stream TopicMessage"
+        },
+        {
+          "method": "Ack",
+          "fullMethod": "qx.v1.Broker/Ack",
+          "type": "unary",
+          "description": "Acknowledge a message by its receipt (removes from inflight).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "receipt": {
+              "partition": 0,
+              "record_id": 1,
+              "attempt": 1
+            }
+          },
+          "responseSummary": "AckResponse {}"
+        },
+        {
+          "method": "Nack",
+          "fullMethod": "qx.v1.Broker/Nack",
+          "type": "unary",
+          "description": "Negative-ack: requeue the message for redelivery.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "receipt": {
+              "partition": 0,
+              "record_id": 1,
+              "attempt": 1
+            }
+          },
+          "responseSummary": "NackResponse {}"
+        },
+        {
+          "method": "ExtendVisibility",
+          "fullMethod": "qx.v1.Broker/ExtendVisibility",
+          "type": "unary",
+          "description": "Extend the visibility timeout of an inflight message.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "receipt": {
+              "partition": 0,
+              "record_id": 1,
+              "attempt": 1
+            },
+            "extension_ms": 30000
+          },
+          "responseSummary": "ExtendVisibilityResponse {}"
+        },
+        {
+          "method": "Stats",
+          "fullMethod": "qx.v1.Broker/Stats",
+          "type": "unary",
+          "description": "Per-topic queue depths.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders"
+          },
+          "responseSummary": "StatsResponse { partition_count, pending, inflight, dead }"
+        }
+      ]
+    },
+    {
+      "name": "Consumer Groups",
+      "rpcs": [
+        {
+          "method": "StreamFromGroup",
+          "fullMethod": "qx.v1.Broker/StreamFromGroup",
+          "type": "unary",
+          "description": "Read from a partition starting at the group's committed offset.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "group": "billing-workers",
+            "partition": 0,
+            "max": 100
+          },
+          "responseSummary": "StreamFromGroupResponse { messages[] }"
+        },
+        {
+          "method": "CommitGroupOffset",
+          "fullMethod": "qx.v1.Broker/CommitGroupOffset",
+          "type": "unary",
+          "description": "Commit a consumed offset for (group, partition).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "group": "billing-workers",
+            "partition": 0,
+            "offset": 42
+          },
+          "responseSummary": "CommitGroupOffsetResponse {}"
+        },
+        {
+          "method": "GetGroupOffset",
+          "fullMethod": "qx.v1.Broker/GetGroupOffset",
+          "type": "unary",
+          "description": "Read the committed offset for (group, partition).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "group": "billing-workers",
+            "partition": 0
+          },
+          "responseSummary": "GetGroupOffsetResponse { offset? }"
+        }
+      ]
+    },
+    {
+      "name": "Group Coordinator",
+      "rpcs": [
+        {
+          "method": "JoinGroup",
+          "fullMethod": "qx.v1.Broker/JoinGroup",
+          "type": "unary",
+          "description": "Join a rebalanceable group; returns your member id + partition assignment.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "group": "billing-workers"
+          },
+          "responseSummary": "JoinGroupResponse { member_id, generation, assignment[] }"
+        },
+        {
+          "method": "Heartbeat",
+          "fullMethod": "qx.v1.Broker/Heartbeat",
+          "type": "unary",
+          "description": "Keep membership alive; surfaces rebalances via a new generation.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "group": "billing-workers",
+            "member_id": 1
+          },
+          "responseSummary": "HeartbeatResponse { generation, assignment[] }"
+        },
+        {
+          "method": "LeaveGroup",
+          "fullMethod": "qx.v1.Broker/LeaveGroup",
+          "type": "unary",
+          "description": "Leave the group (triggers a rebalance).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "group": "billing-workers",
+            "member_id": 1
+          },
+          "responseSummary": "LeaveGroupResponse {}"
+        },
+        {
+          "method": "StreamForMember",
+          "fullMethod": "qx.v1.Broker/StreamForMember",
+          "type": "unary",
+          "description": "Read records for this member's assigned partitions.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "topic": "orders",
+            "group": "billing-workers",
+            "member_id": 1,
+            "max": 100
+          },
+          "responseSummary": "StreamFromGroupResponse { messages[] }"
+        }
+      ]
+    },
+    {
+      "name": "Workflow Tasks",
+      "rpcs": [
+        {
+          "method": "CreateRootTask",
+          "fullMethod": "qx.v1.Broker/CreateRootTask",
+          "type": "unary",
+          "description": "Start a workflow DAG with a root task.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "workflow": "order-fulfillment",
+            "payload": "eyJvcmRlcl9pZCI6IDEwMDEsICJhbW91bnQiOiA0OTk5fQ=="
+          },
+          "responseSummary": "CreateTaskResponse { task_id }"
+        },
+        {
+          "method": "CreateChildTask",
+          "fullMethod": "qx.v1.Broker/CreateChildTask",
+          "type": "unary",
+          "description": "Add a child task under a parent.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "workflow": "order-fulfillment",
+            "parent_id": 1,
+            "payload": "eyJzdGVwIjoicmVzZXJ2ZS1pbnZlbnRvcnkifQ=="
+          },
+          "responseSummary": "CreateTaskResponse { task_id }"
+        },
+        {
+          "method": "GetTask",
+          "fullMethod": "qx.v1.Broker/GetTask",
+          "type": "unary",
+          "description": "Fetch a task (status: 0=Pending 1=Running 2=Done 3=Failed 4=Cancelled).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "workflow": "order-fulfillment",
+            "task_id": 1
+          },
+          "responseSummary": "TaskMessage { id, status, payload, result, error }"
+        },
+        {
+          "method": "ListChildren",
+          "fullMethod": "qx.v1.Broker/ListChildren",
+          "type": "unary",
+          "description": "List child task ids of a parent.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "workflow": "order-fulfillment",
+            "parent_id": 1
+          },
+          "responseSummary": "ListChildrenResponse { child_ids[] }"
+        },
+        {
+          "method": "MarkTaskRunning",
+          "fullMethod": "qx.v1.Broker/MarkTaskRunning",
+          "type": "unary",
+          "description": "Transition a task to Running.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "workflow": "order-fulfillment",
+            "task_id": 1
+          },
+          "responseSummary": "TaskOpResponse {}"
+        },
+        {
+          "method": "CompleteTask",
+          "fullMethod": "qx.v1.Broker/CompleteTask",
+          "type": "unary",
+          "description": "Mark a task Done with a result payload (base64 bytes).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "workflow": "order-fulfillment",
+            "task_id": 1,
+            "result": "eyJzdGF0dXMiOiAib2siLCAic2hpcHBlZCI6IHRydWV9"
+          },
+          "responseSummary": "TaskOpResponse {}"
+        },
+        {
+          "method": "FailTask",
+          "fullMethod": "qx.v1.Broker/FailTask",
+          "type": "unary",
+          "description": "Mark a task Failed with an error string.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "workflow": "order-fulfillment",
+            "task_id": 1,
+            "error": "payment declined"
+          },
+          "responseSummary": "TaskOpResponse {}"
+        },
+        {
+          "method": "CancelTask",
+          "fullMethod": "qx.v1.Broker/CancelTask",
+          "type": "unary",
+          "description": "Cancel a task (and its subtree).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "workflow": "order-fulfillment",
+            "task_id": 1
+          },
+          "responseSummary": "CancelTaskResponse { cancelled }"
+        },
+        {
+          "method": "CompleteTaskWithEmits",
+          "fullMethod": "qx.v1.Broker/CompleteTaskWithEmits",
+          "type": "unary",
+          "description": "Complete a task and atomically stage topic emits (transactional outbox).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "workflow": "order-fulfillment",
+            "task_id": 1,
+            "result": "eyJzdGF0dXMiOiAib2siLCAic2hpcHBlZCI6IHRydWV9",
+            "emits": [
+              {
+                "topic": "shipments",
+                "payload": "eyJvcmRlcl9pZCI6MTAwMX0="
+              }
+            ]
+          },
+          "responseSummary": "TaskOpResponse {}"
+        }
+      ]
+    },
+    {
+      "name": "Schema Registry",
+      "rpcs": [
+        {
+          "method": "RegisterSchema",
+          "fullMethod": "qx.v1.Broker/RegisterSchema",
+          "type": "unary",
+          "description": "Register a schema for a subject (returns assigned id + version).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "subject": "orders-value",
+            "bytes": "eyJ0eXBlIjogInJlY29yZCIsICJuYW1lIjogIk9yZGVyIiwgImZpZWxkcyI6IFt7Im5hbWUiOiAib3JkZXJfaWQiLCAidHlwZSI6ICJsb25nIn0sIHsibmFtZSI6ICJhbW91bnQiLCAidHlwZSI6ICJpbnQifV19"
+          },
+          "responseSummary": "SchemaMessage { id, subject, version, bytes }"
+        },
+        {
+          "method": "GetSchemaById",
+          "fullMethod": "qx.v1.Broker/GetSchemaById",
+          "type": "unary",
+          "description": "Fetch a schema by its global id.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "id": 1
+          },
+          "responseSummary": "SchemaMessage"
+        },
+        {
+          "method": "GetSchemaVersion",
+          "fullMethod": "qx.v1.Broker/GetSchemaVersion",
+          "type": "unary",
+          "description": "Fetch a specific (subject, version).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "subject": "orders-value",
+            "version": 1
+          },
+          "responseSummary": "SchemaMessage"
+        },
+        {
+          "method": "GetLatestSchema",
+          "fullMethod": "qx.v1.Broker/GetLatestSchema",
+          "type": "unary",
+          "description": "Fetch the latest version for a subject.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "subject": "orders-value"
+          },
+          "responseSummary": "SchemaMessage"
+        },
+        {
+          "method": "ListSchemaVersions",
+          "fullMethod": "qx.v1.Broker/ListSchemaVersions",
+          "type": "unary",
+          "description": "List all versions registered for a subject.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "subject": "orders-value"
+          },
+          "responseSummary": "ListSchemaVersionsResponse { versions[] }"
+        },
+        {
+          "method": "ListSubjects",
+          "fullMethod": "qx.v1.Broker/ListSubjects",
+          "type": "unary",
+          "description": "List all registered subjects. (empty request message)",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {},
+          "responseSummary": "ListSubjectsResponse { subjects[] }"
+        }
+      ]
+    },
+    {
+      "name": "Triggers",
+      "rpcs": [
+        {
+          "method": "RegisterTrigger",
+          "fullMethod": "qx.v1.Broker/RegisterTrigger",
+          "type": "unary",
+          "description": "Durably bind a topic to a workflow (0 = use server defaults).",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "name": "orders->fulfillment",
+            "topic": "orders",
+            "workflow": "order-fulfillment",
+            "batch_size": 0,
+            "poll_interval_ms": 0
+          },
+          "responseSummary": "RegisterTriggerResponse {}"
+        },
+        {
+          "method": "UnregisterTrigger",
+          "fullMethod": "qx.v1.Broker/UnregisterTrigger",
+          "type": "unary",
+          "description": "Remove a trigger by name.",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {
+            "name": "orders->fulfillment"
+          },
+          "responseSummary": "UnregisterTriggerResponse { removed }"
+        },
+        {
+          "method": "ListTriggers",
+          "fullMethod": "qx.v1.Broker/ListTriggers",
+          "type": "unary",
+          "description": "List all registered triggers. (empty request message)",
+          "metadata": [
+            {
+              "key": "authorization",
+              "value": "Bearer {{qx_token}}"
+            }
+          ],
+          "message": {},
+          "responseSummary": "ListTriggersResponse { triggers[] }"
+        }
+      ]
+    }
+  ]
+}

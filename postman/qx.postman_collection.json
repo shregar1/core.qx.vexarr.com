@@ -1,0 +1,1838 @@
+{
+  "info": {
+    "_postman_id": "8030aac3-8dd0-43d4-91b3-c10cb59832f2",
+    "name": "QX Broker \u2014 HTTP Admin API",
+    "description": "# QX Broker \u2014 HTTP Admin API\n\nqx (queuex) is a Rust message broker that speaks two primary data-plane protocols: **gRPC** (its native client API) and the **Kafka wire protocol**. Those two protocols carry all produce/consume/transaction/consumer-group traffic and are explicitly NOT covered by this collection.\n\nThis collection maps ONLY the broker's HTTP surface, which is a small, **read-only introspection/observability** layer. All HTTP routes are served by a single custom HTTP/1.1 listener (`handle_metrics_connection` in `crates/broker/src/server.rs`) that multiplexes three things on one port: the Prometheus `/metrics` endpoint, a JSON dashboard-data API under `/api/*` (consumed by the embedded qx-dashboard SPA \u2014 see `crates/broker/src/admin_api.rs`), and the embedded dashboard static assets / SPA shell. The listener defaults to `http://127.0.0.1:9090` and is configured via the `[metrics].addr` block in `qx.toml` (set `[metrics].addr = \"off\"` to disable the HTTP surface entirely).\n\n**Auth:** the HTTP surface is entirely UNAUTHENTICATED and public. The broker's bearer-token / keyx (`crates/broker/src/auth_keyx.rs`, admin/owner role) authentication applies ONLY to the gRPC listener via `check_auth_combined`, which returns gRPC `Status` codes \u2014 it is never invoked on the HTTP path. Every HTTP response is emitted with `Access-Control-Allow-Origin: *` so the Vite dev dashboard (:5173) can fetch cross-origin. Only `GET` (and CORS-preflight `OPTIONS`) are handled; any other path returns `404 Not Found` with the plain-text body `not found\\n` (there is NO JSON error envelope on the HTTP surface).\n\n**Response shape:** raw JSON, unwrapped. `/api/health` returns a single object; `/api/nodes`, `/api/topics`, `/api/groups`, `/api/workflows`, `/api/events` each return a bare JSON array. `/metrics` returns Prometheus text exposition (`text/plain; version=0.0.4`).\n\nUNCERTAINTIES: (1) No production HTTP host is defined anywhere in the repo (the broker has no production deployments per docs/COMPARISON.md); the stage hostnames below follow the assumed `admin.qx.vexarr.com` vexarr convention and are PLACEHOLDERS \u2014 in practice qx is reached at its local/cluster bind address. (2) The default port 9090 collides with Prometheus's own default; operators are expected to override `[metrics].addr`.\n\n## Authentication\n\nThe HTTP surface (/metrics, /api/*, dashboard assets) is fully PUBLIC and unauthenticated \u2014 there is no Authorization check in handle_metrics_connection. The broker's bearer-token + keyx validation (admin/owner role, crates/broker/src/auth_keyx.rs) is enforced ONLY on the gRPC data-plane listener (check_auth_combined), not on HTTP. An access_token variable is kept in the collection only in case a reverse proxy is placed in front of the broker to add auth; the broker itself ignores it.\n\n\n## Stages\n\nOne collection serves every stage \u2014 switch the Postman *environment* to switch stage.\n\n| Stage | `base_url` |\n| --- | --- |\n| Local / Dev | `http://localhost:9090` |\n| Integration | `https://admin.integration.qx.vexarr.com` |\n| Staging | `https://admin.staging.qx.vexarr.com` |\n| Production | `https://admin.qx.vexarr.com` |\n\n## Examples & tests\n\nEvery request ships \u2265 5 saved example responses (one per status case) and a `test` script that asserts the response shape, the success payload's fields, and captures ids/tokens into collection variables for chaining. A collection-level test runs baseline assertions on every request.\n\n> Generated from `_inventory.json` by `gen_collection.py`.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Health & Metrics",
+      "item": [
+        {
+          "name": "Broker health / liveness",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/health",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "health"
+              ]
+            },
+            "description": "**Broker health / liveness**\n\nLiveness probe. Returns broker status and uptime in seconds. No auth; public. Raw JSON object (NOT an array).\n\n_Public endpoint \u2014 no auth required._\n\n`GET /api/health`"
+          },
+          "response": [
+            {
+              "name": "200 \u2014 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/health",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "health"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "{\n  \"status\": \"ok\",\n  \"uptimeSeconds\": 18432\n}"
+            },
+            {
+              "name": "404 \u2014 Not Found (NOT_FOUND)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/health",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "health"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Resource not found."
+            },
+            {
+              "name": "405 \u2014 Method Not Allowed (METHOD_NOT_ALLOWED)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/health",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "health"
+                  ]
+                }
+              },
+              "status": "Method Not Allowed",
+              "code": 405,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "HTTP method not allowed for this route."
+            },
+            {
+              "name": "500 \u2014 Internal Server Error (INTERNAL_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/health",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "health"
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "An unexpected error occurred."
+            },
+            {
+              "name": "503 \u2014 Service Unavailable (UNAVAILABLE)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/health",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "health"
+                  ]
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "The service is temporarily unavailable."
+            },
+            {
+              "name": "400 \u2014 Bad Request (VALIDATION_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/health",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "health"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Request failed validation."
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// \u2500\u2500 generated tests \u2500\u2500",
+                  "pm.test('Status code is one of the documented codes', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 405, 500, 503]);",
+                  "});",
+                  "",
+                  "var json = null;",
+                  "var isJson = (pm.response.headers.get('Content-Type') || '').toLowerCase().indexOf('json') !== -1;",
+                  "if (isJson) { pm.test('Body parses as JSON', function () { json = pm.response.json(); pm.expect(json).to.be.an('object'); }); }",
+                  "",
+                  "if (pm.response.code === 200 && json) {",
+                  "    pm.test('payload carries expected fields', function () {",
+                  "        pm.expect(json).to.be.an('object');",
+                  "        [\"status\", \"uptimeSeconds\"].forEach(function (f) { pm.expect(json, 'missing ' + f).to.have.property(f); });",
+                  "    });",
+                  "    if (json.status !== undefined && json.status !== null) { pm.collectionVariables.set('status', String(json.status)); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Prometheus metrics (text exposition)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              },
+              {
+                "key": "Accept",
+                "value": "text/plain"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/metrics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "metrics"
+              ]
+            },
+            "description": "**Prometheus metrics (text exposition)**\n\nPrometheus scrape endpoint. Content-Type text/plain; version=0.0.4. Emits per-topic gauges: qx_topic_pending, qx_topic_inflight, qx_topic_dead, qx_topic_partitions (each labelled {topic=...}). Public, no auth. NOT JSON \u2014 set Accept to text/plain. If the broker is built without an embedded dashboard, GET / also serves this same metrics text (legacy 'Prometheus at root' behaviour).\n\n_Public endpoint \u2014 no auth required._\n\n`GET /metrics`"
+          },
+          "response": [
+            {
+              "name": "200 \u2014 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "text/plain"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/metrics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "metrics"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "# HELP qx_topic_pending Messages awaiting delivery.\n# TYPE qx_topic_pending gauge\nqx_topic_pending{topic=\"orders\"} 42\n# HELP qx_topic_inflight Messages claimed by a consumer, not yet acked.\n# TYPE qx_topic_inflight gauge\nqx_topic_inflight{topic=\"orders\"} 7\n# HELP qx_topic_dead Messages in the dead-letter state.\n# TYPE qx_topic_dead gauge\nqx_topic_dead{topic=\"orders\"} 0\n# HELP qx_topic_partitions Configured partition count.\n# TYPE qx_topic_partitions gauge\nqx_topic_partitions{topic=\"orders\"} 6\n"
+            },
+            {
+              "name": "404 \u2014 Not Found (NOT_FOUND)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "text/plain"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/metrics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "metrics"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Resource not found."
+            },
+            {
+              "name": "405 \u2014 Method Not Allowed (METHOD_NOT_ALLOWED)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "text/plain"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/metrics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "metrics"
+                  ]
+                }
+              },
+              "status": "Method Not Allowed",
+              "code": 405,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "HTTP method not allowed for this route."
+            },
+            {
+              "name": "500 \u2014 Internal Server Error (INTERNAL_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "text/plain"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/metrics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "metrics"
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "An unexpected error occurred."
+            },
+            {
+              "name": "503 \u2014 Service Unavailable (UNAVAILABLE)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "text/plain"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/metrics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "metrics"
+                  ]
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "The service is temporarily unavailable."
+            },
+            {
+              "name": "400 \u2014 Bad Request (VALIDATION_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  },
+                  {
+                    "key": "Accept",
+                    "value": "text/plain"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/metrics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "metrics"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Request failed validation."
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// \u2500\u2500 generated tests \u2500\u2500",
+                  "pm.test('Status code is one of the documented codes', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 405, 500, 503]);",
+                  "});",
+                  "",
+                  "pm.test('Success path returns 200', function () {",
+                  "    if (pm.response.code < 300) { pm.expect(pm.response.code).to.be.oneOf([200]); }",
+                  "});"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Cluster",
+      "item": [
+        {
+          "name": "Cluster nodes / Raft peers",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/nodes",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "nodes"
+              ]
+            },
+            "description": "**Cluster nodes / Raft peers**\n\nReturns one row per broker node: the local node plus every configured Raft peer. Each row carries live openraft state (term, commitIndex, lastApplied), role (leader/follower/candidate), status, and uptimeSeconds. In single-node mode returns just the local node. Raw JSON array.\n\n_Public endpoint \u2014 no auth required._\n\n`GET /api/nodes`"
+          },
+          "response": [
+            {
+              "name": "200 \u2014 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/nodes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "nodes"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"id\": 0,\n    \"addr\": \"10.0.0.11:50051\",\n    \"role\": \"leader\",\n    \"status\": \"healthy\",\n    \"term\": 4,\n    \"commitIndex\": 192034,\n    \"lastApplied\": 192034,\n    \"uptimeSeconds\": 18432\n  }\n]"
+            },
+            {
+              "name": "404 \u2014 Not Found (NOT_FOUND)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/nodes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "nodes"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Resource not found."
+            },
+            {
+              "name": "405 \u2014 Method Not Allowed (METHOD_NOT_ALLOWED)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/nodes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "nodes"
+                  ]
+                }
+              },
+              "status": "Method Not Allowed",
+              "code": 405,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "HTTP method not allowed for this route."
+            },
+            {
+              "name": "500 \u2014 Internal Server Error (INTERNAL_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/nodes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "nodes"
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "An unexpected error occurred."
+            },
+            {
+              "name": "503 \u2014 Service Unavailable (UNAVAILABLE)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/nodes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "nodes"
+                  ]
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "The service is temporarily unavailable."
+            },
+            {
+              "name": "400 \u2014 Bad Request (VALIDATION_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/nodes",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "nodes"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Request failed validation."
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// \u2500\u2500 generated tests \u2500\u2500",
+                  "pm.test('Status code is one of the documented codes', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 405, 500, 503]);",
+                  "});",
+                  "",
+                  "var json = null;",
+                  "var isJson = (pm.response.headers.get('Content-Type') || '').toLowerCase().indexOf('json') !== -1;",
+                  "if (isJson) { pm.test('Body parses as JSON', function () { json = pm.response.json(); pm.expect(json).to.be.an('object'); }); }",
+                  "",
+                  "if (pm.response.code === 200 && json) {",
+                  "    pm.test('payload is an array', function () { pm.expect(json).to.be.an('array'); });",
+                  "    if (json.id !== undefined && json.id !== null) { pm.collectionVariables.set('node_id', String(json.id)); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Topics",
+      "item": [
+        {
+          "name": "Topics with live stats & rates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/topics",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "topics"
+              ]
+            },
+            "description": "**Topics with live stats & rates**\n\nReturns one row per open topic with real pending/inflight/dead counts (from a ~1s-stale background cache to avoid locking partition mutexes) plus live per-second message and byte rates computed as deltas between successive polls (first poll returns 0.0). Raw JSON array.\n\n_Public endpoint \u2014 no auth required._\n\n`GET /api/topics`"
+          },
+          "response": [
+            {
+              "name": "200 \u2014 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/topics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "topics"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"name\": \"orders\",\n    \"partitions\": 6,\n    \"pending\": 42,\n    \"inflight\": 7,\n    \"dead\": 0,\n    \"retentionMode\": \"queue\",\n    \"bytesPerSec\": 10485.6,\n    \"msgsPerSec\": 128.4\n  }\n]"
+            },
+            {
+              "name": "404 \u2014 Not Found (NOT_FOUND)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/topics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "topics"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Resource not found."
+            },
+            {
+              "name": "405 \u2014 Method Not Allowed (METHOD_NOT_ALLOWED)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/topics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "topics"
+                  ]
+                }
+              },
+              "status": "Method Not Allowed",
+              "code": 405,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "HTTP method not allowed for this route."
+            },
+            {
+              "name": "500 \u2014 Internal Server Error (INTERNAL_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/topics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "topics"
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "An unexpected error occurred."
+            },
+            {
+              "name": "503 \u2014 Service Unavailable (UNAVAILABLE)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/topics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "topics"
+                  ]
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "The service is temporarily unavailable."
+            },
+            {
+              "name": "400 \u2014 Bad Request (VALIDATION_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/topics",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "topics"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Request failed validation."
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// \u2500\u2500 generated tests \u2500\u2500",
+                  "pm.test('Status code is one of the documented codes', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 405, 500, 503]);",
+                  "});",
+                  "",
+                  "var json = null;",
+                  "var isJson = (pm.response.headers.get('Content-Type') || '').toLowerCase().indexOf('json') !== -1;",
+                  "if (isJson) { pm.test('Body parses as JSON', function () { json = pm.response.json(); pm.expect(json).to.be.an('object'); }); }",
+                  "",
+                  "if (pm.response.code === 200 && json) {",
+                  "    pm.test('payload is an array', function () { pm.expect(json).to.be.an('array'); });",
+                  "    if (json.name !== undefined && json.name !== null) { pm.collectionVariables.set('topic', String(json.name)); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Consumer Groups",
+      "item": [
+        {
+          "name": "Consumer groups (gRPC + Kafka) with lag",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/groups",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "groups"
+              ]
+            },
+            "description": "**Consumer groups (gRPC + Kafka) with lag**\n\nReturns one row per (group, topic) combining gRPC-side consumer groups and Kafka coordinator groups. Kafka rows carry real per-(group,topic) lag joined against each partition's high-water mark; gRPC rows report lag 0 (their pending lives in /api/topics 'pending'). status is one of empty/stable/rebalancing. Raw JSON array.\n\n_Public endpoint \u2014 no auth required._\n\n`GET /api/groups`"
+          },
+          "response": [
+            {
+              "name": "200 \u2014 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/groups",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "groups"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"name\": \"order-consumers\",\n    \"topic\": \"orders\",\n    \"members\": 3,\n    \"lag\": 128,\n    \"status\": \"stable\",\n    \"generation\": 12\n  }\n]"
+            },
+            {
+              "name": "404 \u2014 Not Found (NOT_FOUND)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/groups",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "groups"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Resource not found."
+            },
+            {
+              "name": "405 \u2014 Method Not Allowed (METHOD_NOT_ALLOWED)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/groups",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "groups"
+                  ]
+                }
+              },
+              "status": "Method Not Allowed",
+              "code": 405,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "HTTP method not allowed for this route."
+            },
+            {
+              "name": "500 \u2014 Internal Server Error (INTERNAL_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/groups",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "groups"
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "An unexpected error occurred."
+            },
+            {
+              "name": "503 \u2014 Service Unavailable (UNAVAILABLE)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/groups",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "groups"
+                  ]
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "The service is temporarily unavailable."
+            },
+            {
+              "name": "400 \u2014 Bad Request (VALIDATION_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/groups",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "groups"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Request failed validation."
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// \u2500\u2500 generated tests \u2500\u2500",
+                  "pm.test('Status code is one of the documented codes', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 405, 500, 503]);",
+                  "});",
+                  "",
+                  "var json = null;",
+                  "var isJson = (pm.response.headers.get('Content-Type') || '').toLowerCase().indexOf('json') !== -1;",
+                  "if (isJson) { pm.test('Body parses as JSON', function () { json = pm.response.json(); pm.expect(json).to.be.an('object'); }); }",
+                  "",
+                  "if (pm.response.code === 200 && json) {",
+                  "    pm.test('payload is an array', function () { pm.expect(json).to.be.an('array'); });",
+                  "    if (json.name !== undefined && json.name !== null) { pm.collectionVariables.set('group', String(json.name)); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Workflows",
+      "item": [
+        {
+          "name": "Workflow engines task aggregates",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/workflows",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "workflows"
+              ]
+            },
+            "description": "**Workflow engines task aggregates**\n\nReturns one row per workflow engine with aggregate task counts (total tasks, running = running+pending, done, failed, cancelled). Read from a background cache to avoid blocking on the engine mutex. Raw JSON array.\n\n_Public endpoint \u2014 no auth required._\n\n`GET /api/workflows`"
+          },
+          "response": [
+            {
+              "name": "200 \u2014 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/workflows",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "workflows"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"name\": \"fulfillment\",\n    \"tasks\": 5120,\n    \"running\": 18,\n    \"done\": 5080,\n    \"failed\": 14,\n    \"cancelled\": 8\n  }\n]"
+            },
+            {
+              "name": "404 \u2014 Not Found (NOT_FOUND)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/workflows",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "workflows"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Resource not found."
+            },
+            {
+              "name": "405 \u2014 Method Not Allowed (METHOD_NOT_ALLOWED)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/workflows",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "workflows"
+                  ]
+                }
+              },
+              "status": "Method Not Allowed",
+              "code": 405,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "HTTP method not allowed for this route."
+            },
+            {
+              "name": "500 \u2014 Internal Server Error (INTERNAL_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/workflows",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "workflows"
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "An unexpected error occurred."
+            },
+            {
+              "name": "503 \u2014 Service Unavailable (UNAVAILABLE)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/workflows",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "workflows"
+                  ]
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "The service is temporarily unavailable."
+            },
+            {
+              "name": "400 \u2014 Bad Request (VALIDATION_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/workflows",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "workflows"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Request failed validation."
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// \u2500\u2500 generated tests \u2500\u2500",
+                  "pm.test('Status code is one of the documented codes', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 405, 500, 503]);",
+                  "});",
+                  "",
+                  "var json = null;",
+                  "var isJson = (pm.response.headers.get('Content-Type') || '').toLowerCase().indexOf('json') !== -1;",
+                  "if (isJson) { pm.test('Body parses as JSON', function () { json = pm.response.json(); pm.expect(json).to.be.an('object'); }); }",
+                  "",
+                  "if (pm.response.code === 200 && json) {",
+                  "    pm.test('payload is an array', function () { pm.expect(json).to.be.an('array'); });",
+                  "    if (json.name !== undefined && json.name !== null) { pm.collectionVariables.set('workflow', String(json.name)); }",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Recent broker event log",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/api/events",
+              "host": [
+                "{{base_url}}"
+              ],
+              "path": [
+                "api",
+                "events"
+              ]
+            },
+            "description": "**Recent broker event log**\n\nReturns recent broker events from a bounded in-memory ring buffer (info/warn/error severities, monotonic ids for de-dup across overlapping polls). Note: in the current build this is largely a placeholder and is frequently an empty array. Raw JSON array.\n\n_Public endpoint \u2014 no auth required._\n\n`GET /api/events`"
+          },
+          "response": [
+            {
+              "name": "200 \u2014 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/events",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "events"
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                }
+              ],
+              "cookie": [],
+              "body": "[\n  {\n    \"id\": \"evt-7\",\n    \"ts\": 1718450000000,\n    \"level\": \"info\",\n    \"source\": \"broker\",\n    \"message\": \"broker started\"\n  }\n]"
+            },
+            {
+              "name": "404 \u2014 Not Found (NOT_FOUND)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/events",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "events"
+                  ]
+                }
+              },
+              "status": "Not Found",
+              "code": 404,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Resource not found."
+            },
+            {
+              "name": "405 \u2014 Method Not Allowed (METHOD_NOT_ALLOWED)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/events",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "events"
+                  ]
+                }
+              },
+              "status": "Method Not Allowed",
+              "code": 405,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "HTTP method not allowed for this route."
+            },
+            {
+              "name": "500 \u2014 Internal Server Error (INTERNAL_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/events",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "events"
+                  ]
+                }
+              },
+              "status": "Internal Server Error",
+              "code": 500,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "An unexpected error occurred."
+            },
+            {
+              "name": "503 \u2014 Service Unavailable (UNAVAILABLE)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/events",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "events"
+                  ]
+                }
+              },
+              "status": "Service Unavailable",
+              "code": 503,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "The service is temporarily unavailable."
+            },
+            {
+              "name": "400 \u2014 Bad Request (VALIDATION_ERROR)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Accept",
+                    "value": "application/json"
+                  }
+                ],
+                "url": {
+                  "raw": "{{base_url}}/api/events",
+                  "host": [
+                    "{{base_url}}"
+                  ],
+                  "path": [
+                    "api",
+                    "events"
+                  ]
+                }
+              },
+              "status": "Bad Request",
+              "code": 400,
+              "_postman_previewlanguage": "text",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "text/plain; charset=utf-8"
+                }
+              ],
+              "cookie": [],
+              "body": "Request failed validation."
+            }
+          ],
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// \u2500\u2500 generated tests \u2500\u2500",
+                  "pm.test('Status code is one of the documented codes', function () {",
+                  "    pm.expect(pm.response.code).to.be.oneOf([200, 400, 404, 405, 500, 503]);",
+                  "});",
+                  "",
+                  "var json = null;",
+                  "var isJson = (pm.response.headers.get('Content-Type') || '').toLowerCase().indexOf('json') !== -1;",
+                  "if (isJson) { pm.test('Body parses as JSON', function () { json = pm.response.json(); pm.expect(json).to.be.an('object'); }); }",
+                  "",
+                  "if (pm.response.code === 200 && json) {",
+                  "    pm.test('payload is an array', function () { pm.expect(json).to.be.an('array'); });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "// baseline assertions (every request)",
+          "pm.test('HTTP status is sane', function () { pm.expect(pm.response.code).to.be.within(100, 599); });",
+          "pm.test('Response time < 4000ms', function () { pm.expect(pm.response.responseTime).to.be.below(4000); });",
+          "var ct = (pm.response.headers.get('Content-Type') || '').toLowerCase();",
+          "if (ct.indexOf('application/json') !== -1) {",
+          "    var body;",
+          "    pm.test('Body parses as JSON', function () { body = pm.response.json(); pm.expect(body).to.not.be.undefined; });",
+          "    if (body) {",
+          "    }",
+          "}",
+          ""
+        ]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "stage",
+      "value": "local-dev",
+      "type": "string"
+    },
+    {
+      "key": "base_url",
+      "value": "http://localhost:9090",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "secret"
+    },
+    {
+      "key": "topic",
+      "value": "orders",
+      "type": "string"
+    },
+    {
+      "key": "group",
+      "value": "order-consumers",
+      "type": "string"
+    },
+    {
+      "key": "node_id",
+      "value": "0",
+      "type": "string"
+    },
+    {
+      "key": "workflow",
+      "value": "fulfillment",
+      "type": "string"
+    }
+  ]
+}
